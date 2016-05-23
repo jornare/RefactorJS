@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+	<title>Refactor JavaScript</title>
+
+	<link rel="stylesheet" href="css/reveal.css">
+	<link rel="stylesheet" href="css/theme/sky.css">
+
+	<!-- Theme used for syntax highlighting of code -->
+	<link rel="stylesheet" href="lib/css/zenburn.css">
+
+	<!-- Printing and PDF exports -->
+	<script>
+		var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+	</script>
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+			<section>
+				<section>
+					<h1>Preface</h1>
+				</section>
+				<section>
+					<p>You have one large file with all your JavaScript for one page.</p>
+					<p>It uses some libraries and "common" code, but you don't know what.</p>
+					<p>The code is tightly coupled with events, DOM manipulation, business logic and Ajax calls all together.</p>
+					<p> It's time to tear it apart.</p>
+				</section>
+			</section>
+			<section>
+				<section>
+					<h1>Step 1</h1>
+				</section>
+				<section>
+					<p>Get a good editor with JavaScript syntax higlighting, autocompletion and linting support.</p>
+					<p>Example: <a href="https://code.visualstudio.com/">Visual Studio Code</a> with <a href="https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint">ESLint plugin</a>.</p>
+					<p>The linter is your friend and helps you from yourself.</p>
+				</section>
+				<section>
+					<h2>Observe</h2>
+					<p>Do you have many linting errors? -fix them. Maybe the editor can fix them automatically for you.</p>
+					<p>Make sure you have proper indentation, it makes the code easier to read.</p>
+				</section>
+			</section>
+			<section>
+
+				<section>
+					<h1>Step 2 - Add some constraints</h1>
+				</section>
+				<section>
+					<h2>Add 'use strict' at the top of your file</h2>
+					<p>'use strict' enables strict mode, which helps you identify possible collitions in variable names in different scopes
+						and forces variables to be declared. The use of undeclared variables are potentially dangerous, because they may have
+						been initialized outside your scope, even your file, and changing it may yield side effects.</p>
+					<p><a href="http://yuiblog.com/blog/2010/12/14/strict-mode-is-coming-to-town/">Read more</a></p>
+				</section>
+				<section>
+					<h2>Add a closure around all of your code</h2>
+					<p>A closure helps you not bleed variables that should be private to the file to other parts of the application.
+						<p>From now
+						on, all functionality that should be exposed outside this file should be hooked on a namespace.</p>
+						<p>From now on, all external dependencies should be given as parameter(s) to the closure.</p>
+				</section>
+				<section>
+					<h2>Example</h2>
+					<pre><code data-trim data-noescape>
+'use strict';
+(function(global) { //start of closure
+	//declare local variables and functionality here
+	function privateFunction() {
+	
+	}
+	
+	function exposedFunction() {
+		privateFunction();
+	}
+
+	global.myNamespace = { //expose your functionality here
+		exposedFunction: exposedFunction
+	};
+}(this)) //end of closure.
+// 'this' normally refers to 'window' in a browser.
+// When using a testing framework, it refers to its global namespace.
+						</code></pre>
+				</section>
+			</section>
+			
+			<section>
+				<section>
+					<h1>Step 3 - declare your dependencies</h1>
+				</section>
+				<section>
+					<h2>Satisfying the linter</h2>
+					<p>Linters and test frameworks reports errors on undeclared variables.</p>
+					<p>Add a comment at the top of the file to tell the linter and developers what global dependencies you have</p>
+				</section>
+				<section>
+					<h2>Example</h2>
+					<pre><code data-trim data-noescape>
+/* globals jQuery */
+'use strict';
+(function($) { //start of closure
+	//jQuery is now available as a local variable $
+}(jQuery)) //end of closure.
+//This is where your external referenced dependency is injected
+						</code></pre>
+				</section>
+			</section>
+			
+			
+			<section>
+				<section>
+					<h1>Step 3 - A service to access backend(s)</h1>
+				</section>
+				<section>
+					<h2>Make a "service" file for accessing the backend.</h2>
+					<p>If you have more than one backend, make one for each backend.</p>
+						<p>The service file contains all the Ajax calls you may use
+						so that you in your business logic can have a one-line verbal call rather than 10 lines of configuration and setup
+						of each request.</p>
+						<p>The service is injected as a dependency to the files that needs it. (See step 2)</p>
+					<p>Remember to add 'use strict()' & a closure.</p>
+				</section>
+				<section>
+					<h2>Example</h2>
+					<pre><code data-trim data-noescape>
+/* globals jQuery */
+'use strict';
+this.myNamespace = this.myNamespace || {};
+(function(myNamespace, $) { //start of closure
+	var baseURI = 'http://api.example.com/'
+	
+	function getUsers() {
+		return $.get(baseURI + 'users/');
+	}
+	
+	function addUser(user) {
+		//set up the post and perform it here.
+	}
+	
+	myNamespace.myBackend = {
+		getUsers: getUsers,
+		addUser: addUser
+	};
+}(this.myNamespace, jQuery));
+						</code></pre>
+				</section>
+				
+				<section>
+					<h2>Using the service</h2>
+					<pre><code data-trim data-noescape>
+/* globals */
+'use strict';
+this.myNamespace = this.myNamespace || {};
+(function(myBackend) { //start of closure
+	var users = [];
+
+	function onUsersRetrieved(userList) {
+		users.splice(0, userList.length, userList);
+	}
+
+	function getUsers() {
+		myBackend
+			.getUsers()
+			.done(onUsersRetrieved);
+	}
+	
+	
+}(this.myNamespace.myBackend));
+						</code></pre>
+				</section>
+				
+				
+				<section>
+					<h2>Observe:</h2>
+					<ul>
+						<li>Your main file should now be somewhat smaller.</li>
+						<li>You may find that a lot of the setup for the ajax calls are common, and you might refactor the calls more easily as
+							they are now next to eachother in one file.</li>
+						<li>Your main code using the services should be more readable.</li>
+					</ul>
+				</section>
+			</section>
+<!--
+			<section>
+				<section>
+					<h1>Step 3 - A service to access backend(s)</h1>
+				</section>
+				<section>
+					<h2>Make a "service" file for accessing the backend.</h2>
+					<p>If you have more than one backend, make one for each backend.</p>
+						<p>The service file contains all the Ajax calls you may use
+						so that you in your business logic can have a one-line verbal call rather than 10 lines of configuration and setup
+						of each request.</p>
+						<p>The service is injected as a dependency to the files that needs it. (See step 2)</p>
+					<p>Remember to add 'use strict()' & a closure.</p>
+				</section>
+				<section>
+					<h2>Example</h2>
+					<pre><code data-trim data-noescape>
+'use strict';
+function() {
+
+}
+						</code></pre>
+				</section>
+				<section>
+					<h2>Observe:</h2>
+					<ul>
+						<li>Your main file should now be somewhat smaller.</li>
+						<li>You may find that a lot of the setup for the ajax calls are common, and you might refactor the calls more easily as
+							they are now next to eachother in one file.</li>
+						<li>Your main code using the services should be more readable.</li>
+					</ul>
+				</section>
+			</section>
+			-->
+
+		</div>
+	</div>
+
+	<script src="lib/js/head.min.js"></script>
+	<script src="js/reveal.js"></script>
+
+	<script>
+		// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				    multiplex: {
+						// Example values. To generate your own, see the socket.io server instructions.
+						secret: "14637408014706944350", 
+						id: 'db02bc097cda9129', // id, obtained from socket.io server
+						url: 'localhost:1948' // Location of your socket.io server
+					},
+				
+				history: true,
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+	</script>
+</body>
+
+</html>
